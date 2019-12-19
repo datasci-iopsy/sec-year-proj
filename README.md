@@ -1,6 +1,6 @@
 # A Configurational Approach: Using Profiles to Investigate Organizational Justice Perceptions
 
-## NC State I-O Psychology Program: Second Year Project
+## NC State I-O Psychology Program: Second Year Project (2017)
 
 This repo comprises R code used to analyze data collected for my second year project. The manuscript is currently in progress, but I intend to further develop the code and thus augment the analyses as I gain more insight into additional techniques. Due to IRB regulations, the data is not openly provided (requests can be considered).
 
