@@ -4,14 +4,13 @@
 rm(list = ls()) #clear all content
 
 # set working directory - ctrl + shift + h
-setwd("~/Dropbox/Research/2nd Year Project Analysis/Data Files")
 
 library("lessR")
 library("tidyverse")
 library("psych")
 
 #read in file (skip the second line)
-all_content = readLines("2nd Year Data Clean.csv")
+all_content = readLines("./data/proj-data_cln.csv")
      skip_second = all_content[-2]
      dat1 = read.csv(textConnection(skip_second), header=T, stringsAsFactors=T)
 
@@ -21,6 +20,8 @@ rm(all_content, skip_second) #keep environment neat
 
 #Demographic dataset
 demo <- as.data.frame(dat1[, c(2:6)], header=T)
+
+
 
 #create function to calculate %s for demo variables
 percent_fun <- function(x, y) {
