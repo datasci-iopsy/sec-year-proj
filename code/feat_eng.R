@@ -61,7 +61,18 @@ raw %>%
 #             select(val, frq, pct = raw.prc) %>%
 #             slice(1:10))
 
-#calc proportions across demographic items
+# #counts across demographic items - bar plots...
+# dat_ls$demo[-1] %>%
+#     map(., function(.x) {
+#         ggplot(tibble(.x), aes(y = fct_rev(fct_infreq(.x)))) +
+#             geom_bar(aes(fill = .x), stat = "count", size = 10) +
+#             labs(x = "",
+#                  y = "") +
+#             theme(legend.position = "none")
+#         }) %>%
+#     wrap_plots()
+
+#lollipop version!
 dat_ls$demo[-1] %>%
     #apply `count` function across df
     map(., function(.x) {
@@ -103,14 +114,13 @@ demo_plot_ls$Sex + labs(subtitle = "Sex") +
     plot_annotation(title = "Demographics")
 # detach(demo_plot_ls) #undo attach; run line 93-95 to plot post detach
 
-#save plot
-ggsave("../figs/demo_prop_plot.png",
-       plot = last_plot(),
-       width = 10,
-       height = 6)
+# #save plot - last saved 21-03-22
+# ggsave("../figs/demo_prop_plot.png",
+#        plot = last_plot(),
+#        width = 10,
+#        height = 6)
 
 # End ----
-
 
 # Likert Review -----------------------------------------------------------
 
@@ -127,8 +137,23 @@ select(raw, starts_with("JUS")) -> scales_ls$jus
 select(raw, starts_with("CWB")) -> scales_ls$cwb
 select(raw, starts_with("SAT")) -> scales_ls$sat
 
+scales_ls$bfi %>%
+    select(matches("_A")) %>%
+    mutate(across(everything(),
+                  ~ factor(.x,
+                           levels = c("Strongly disagree",
+                                      "Somewhat disagree",
+                                      "Neither agree nor disagree",
+                                      "Somewhat agree",
+                                      "Strongly agree")))) %>%
+    map_df(., ~ count(tibble(x = .x), x), .id = "df") %>%
+    ggplot(aes(y = x, x = n, fill = x)) +
+    geom_bar(stat = "identity") +
+    facet_wrap(vars(df)) +
+    theme(legend.position = "none")
+
 #update
-find_var(dat_ls$scales, pattern = "BFI_E", out = "df") %>% plot_likert()
+find_var(dat_ls$scales, pattern = "BFI_A", out = "df") %>% plot_likert()
 plot_likert(test)
 
 #list of demographic variable counts
