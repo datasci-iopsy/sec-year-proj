@@ -179,7 +179,7 @@ lkrt_plot_fun = function(.df, item_stem, anchor, ord = TRUE, title = NULL,
                 ordered = ord,
                 legend = "",
                 legend.position = legend_pos,
-                centered = FALSE
+                centered = TRUE
                 ) +
             labs(title = title, y = "")
             # facet_wrap(vars(item_stem))
