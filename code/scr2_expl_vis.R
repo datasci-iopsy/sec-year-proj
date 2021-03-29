@@ -4,7 +4,7 @@ rm(list = ls())
 #load libs
 library(tidyverse) #see output for masks
 library(sjmisc) #masks purrr::is_empty; tidyr::replace_na; tibble::add_case
-library(likert)
+library(likert) #masks dplyr::recode
 library(patchwork)
 
 #script opts
@@ -35,7 +35,7 @@ dat_ls$demo[-1] %>% #rm Age
             labs(x = "",
                  y = "") +
             theme(legend.position = "none")
-    }) %>%
+        }) %>%
     wrap_plots()
 
 #lollipop version!
@@ -45,7 +45,7 @@ dat_ls$demo[-1] %>%
         count(tibble(x = .x), x) %>%
             mutate(pct = (n / sum(n) * 100)) %>%  #calc props
             slice(1:10) #extract top 10
-    }) %>%
+        }) %>%
     #apply custom plot function across cols
     map(., function(.x) {
         ggplot(.x,
@@ -64,7 +64,7 @@ dat_ls$demo[-1] %>%
             labs(x = "",
                  y = "") +
             theme(legend.position = "none") #rm legend
-    }) ->
+        }) ->
     demo_plot_ls
 
 #print & arrange plots
@@ -103,25 +103,19 @@ demo_plot_ls$sex + labs(subtitle = "Sex") +
 # Item Anchors ------------------------------------------------------------
 
 #list comprising scale anchors
-list() -> anchor_ls
-
-c("Strongly disagree", "Somewhat disagree", "Neutral",
-  "Somewhat agree", "Strongly agree") ->
-    anchor_ls$agree
-
-c("Very slightly", "A little", "Moderately", "Quite a bit", "Extremely") ->
-    anchor_ls$amt
-
-c("Very small extent", "Small extent", "Moderate extent",
-  "Large extent", "Very large extent") ->
-    anchor_ls$ext
-
-c("Never", "Sometimes", "Half the time", "Most of the time", "Always") ->
-    anchor_ls$freq
-
-c("Very dissatisfied", "Somewhat dissatisfied", "Neurtral",
-  "Somewhat satisfied", "Very satisfied") ->
-    anchor_ls$sat
+list(
+    agree = c("Strongly disagree", "Somewhat disagree", "Neutral",
+               "Somewhat agree", "Strongly agree"),
+     amt = c("Very slightly", "A little", "Moderately",
+             "Quite a bit", "Extremely"),
+     ext = c("Very small extent", "Small extent", "Moderate extent",
+             "Large extent", "Very large extent"),
+     freq = c("Never", "Sometimes", "Half the time",
+              "Most of the time", "Always"),
+     sat = c("Very dissatisfied", "Somewhat dissatisfied", "Neurtral",
+             "Somewhat satisfied", "Very satisfied")
+    ) ->
+    anchor_ls
 
 # End ----
 
@@ -137,6 +131,9 @@ scales_ls$full %>%
     set_names() ->
     prefixes
 
+#print to review
+prefixes
+
 #custom function for likert plots
 lkrt_plot_fun = function(.df, item_stem, anchor, ord = TRUE, title = NULL,
                          legend_pos = "none", ...)
@@ -144,46 +141,47 @@ lkrt_plot_fun = function(.df, item_stem, anchor, ord = TRUE, title = NULL,
     anchor_ls -> anc
 
     #TO DO: use `match.args` & `switch` to specify scales!
-    if (!anchor %in% names(anc)) {
-        stop("anchor must be 'agree', 'amt', 'ext', 'freq', or 'sat'")
+    if (!anchor %in% names(anc) || !is.character(anchor)) {
+        stop("anchor must be chr & 'agree', 'amt', 'ext', 'freq', or 'sat'")
     }
 
-
-    # .df %>%
-    #     names() %>%
-    #     str_extract("[^[0-9]]+") %>%
-    #     unique() %>%
-    #     set_names() ->
-    #     prefixes
+    #prefix fun can be used here....
 
     #error check...learn tryCatch to bolster error handling...
-    suppressWarnings(
-        if (!item_stem %in% names(prefixes)) {
-            stop("item_stem not found")
-            }
-        )
+    # suppressWarnings(
+    if (!item_stem %in% names(prefixes) || !is.character(item_stem)) {
+        stop("item_stem not found in prefixes; ensure arg is chr class")
+    }
+        # )
 
-    # map(prefixes[item_stem], function(.x) {
-        .df %>%
-            select(matches(item_stem)) %>%
-            mutate(
-                across(
-                    everything(), function(.fct) {
-                        factor(.fct, labels = anc[[anchor]], ordered = TRUE)
-                    }
-                )
-            ) %>%
-            as.data.frame() %>%
-            likert() %>%
-            plot(
-                ordered = ord,
-                legend = "",
-                legend.position = legend_pos,
-                centered = TRUE
-                ) +
-            labs(title = title, y = "")
-            # facet_wrap(vars(item_stem))
-    # })
+    prefixes[item_stem] %>%
+        map(~ list(select(.df, contains(.x)))) ->
+        item_ls
+
+    item_ls %>%
+        map(function(.df) {
+            .df[[1]] %>%
+                select(matches(item_stem)) %>%
+                mutate(
+                    across(
+                        everything(), function(.fct) {
+                            factor(.fct, labels = anc[[anchor]], ordered = TRUE)
+                        }
+                    )
+                ) %>%
+                as.data.frame() %>%
+                likert() %>%
+                plot(
+                    ordered = ord,
+                    legend = "",
+                    legend.position = legend_pos,
+                    centered = TRUE
+                    ) +
+                labs(title = title, y = "")
+            }) ->
+        plot_ls
+
+    return(plot_ls)
 }
 
 #Store plots
@@ -193,25 +191,24 @@ list() -> lkrt_plot_ls
 lkrt_plot_fun(.df = scales_ls$full,
               item_stem = c("bfi_c", "bfi_n", "bfi_a"),
               anchor = "agree",
-              legend_pos = "right"
+              legend_pos = "right",
               ) %>%
-    wrap_plots() %>%
+    wrap_plots(guides = "collect") +
     plot_annotation(
         title = "Personality",
         subtitle = "Conscientiousness | Neuroticism | Agreeableness"
         ) ->
     lkrt_plot_ls$bfi
 
-#exe plots
 lkrt_plot_fun(.df = scales_ls$full,
-              item_stem = c("hos_r", "hos_s"),
+              item_stem = c("hos_s", "hos_r"),
               anchor = "agree",
               legend_pos = "right"
               ) %>%
-    wrap_plots() %>%
+    wrap_plots(guides = "collect") +
     plot_annotation(
         title = "Hostility",
-        subtitle = "Resentment | Suspicion"
+        subtitle = "Suspicion & Resentment",
         ) ->
     lkrt_plot_ls$hos
 
@@ -220,55 +217,64 @@ lkrt_plot_fun(.df = scales_ls$full,
               anchor = "agree",
               legend_pos = "right"
               ) %>%
-    wrap_plots() %>%
-    plot_annotation(title = "Equity Sensitivity") ->
+    wrap_plots(guides = "collect") +
+    plot_annotation(
+        title = "Equity Sensitivity",
+        ) ->
     lkrt_plot_ls$eq
 
 lkrt_plot_fun(.df = scales_ls$full,
-              item_stem = c("pa", "na"),
+              item_stem =  c("pa", "na"),
               anchor = "amt",
               legend_pos = "right"
               ) %>%
-    wrap_plots() %>%
+    wrap_plots(guides = "collect") +
     plot_annotation(
         title = "Affectivity",
         subtitle = "Positive Affect | Negative Affect"
         ) ->
-    lkrt_plot_ls$panas
+    lkrt_plot_ls$pana
 
 lkrt_plot_fun(.df = scales_ls$full,
               item_stem = c("jus_p", "jus_d", "jus_int", "jus_inf"),
               anchor = "ext",
               legend_pos = "right"
               ) %>%
-    wrap_plots() %>%
+    wrap_plots(guides = "collect") +
     plot_annotation(
-        title = "Justice",
+        title = "Org Justice",
         subtitle = "Procedural | Distributive | Interactional | Informational"
-        ) ->
+        )  ->
     lkrt_plot_ls$jus
 
+#abuse isn't working! not enough responses to plot all anchors...review!
 lkrt_plot_fun(.df = scales_ls$full,
-              item_stem = c("cwb_s", "cwb_pd", "cwb_w", "cwb_t"),
+              item_stem = c("cwb_s", "cwb_pd", "cwb_w",  "cwb_t"),
               anchor = "freq",
               legend_pos = "right"
               ) %>%
-    wrap_plots() %>%
+    wrap_plots(guides = "collect") +
     plot_annotation(
         title = "Counterproductive Work Behavior",
-        subtitle = "Sabotage | Product Deviance | Withdrawal | Theft"
-    ) ->
+        subtitle = "Sabotage | Product Deviance | Withdrawal | Theft",
+        ) ->
     lkrt_plot_ls$cwb
 
 lkrt_plot_fun(.df = scales_ls$full,
-              item_stem = c("sat"),
+              item_stem = "sat",
               anchor = "sat",
               legend_pos = "right"
               ) %>%
-    wrap_plots() %>%
-    plot_annotation(title = "Satisfacton") ->
+    wrap_plots() ->
     lkrt_plot_ls$sat
 
+#save plots
+map(names(lkrt_plot_ls), function(.x) {
+    ggsave(
+        path = "../figs/likert_plots",
+        filename = paste0(.x, ".png"),
+        plot = lkrt_plot_ls[[.x]]
+        )
+    })
+
 # End ----
-
-
