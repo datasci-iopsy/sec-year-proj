@@ -6,4 +6,4 @@ This repo comprises R code used to analyze data collected for my second year pro
 
 # Overview
 
-The purpose of this study was to explore antecedents of organizational justice perceptions by utilizing a configurational approach. Self-report personality traits and dispositions were collected using a crowdsourced sample (*N* = 445). The latent profile analysis indicated three distinct profile patterns that were to predict various levels of organizational justice perceptions.
+The purpose of this study was to explore antecedents of organizational justice perceptions by utilizing a configurational approach. Self-report personality traits and dispositions were collected using a crowdsourced sample (*N* = 445). The latent profile analysis indicated three distinct profile patterns that were used to predict various levels of organizational justice perceptions; more specifically, a one-way ANOVA was conducted to measure the mean differences in justice perceptions between the profiles.
