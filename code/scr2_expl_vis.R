@@ -3,7 +3,7 @@ rm(list = ls())
 
 #load libs
 library(tidyverse) #see output for masks
-library(sjmisc) #masks purrr::is_empty; tidyr::replace_na; tibble::add_case
+# library(sjmisc) #masks purrr::is_empty; tidyr::replace_na; tibble::add_case
 library(likert) #masks dplyr::recode
 library(patchwork)
 
@@ -85,21 +85,6 @@ demo_plot_ls$sex + labs(subtitle = "Sex") +
 
 # End ----
 
-# scales_ls$full %>%
-#     select(matches("_E")) %>%
-#     mutate(across(everything(),
-#                   ~ factor(.x,
-#                            labels = c("Strongly disagree",
-#                                       "Somewhat disagree",
-#                                       "Neither agree nor disagree",
-#                                       "Somewhat agree",
-#                                       "Strongly agree")))) %>%
-#     map_df(., ~ count(tibble(x = .x), x), .id = "df") %>%
-#     ggplot(aes(y = x, x = n, fill = x)) +
-#     geom_bar(stat = "identity") +
-#     facet_wrap(vars(df)) +
-#     theme(legend.position = "none")
-
 # Item Anchors ------------------------------------------------------------
 
 #list comprising scale anchors
@@ -124,13 +109,6 @@ list(
 #review anchors
 anchor_ls
 
-scales_ls$full %>%
-    names() %>%
-    str_extract("[^[0-9]]+") %>%
-    unique() %>%
-    set_names() ->
-    prefixes
-
 #print to review
 prefixes
 
@@ -138,24 +116,26 @@ prefixes
 lkrt_plot_fun = function(.df, item_stem, anchor, ord = TRUE, title = NULL,
                          legend_pos = "none", ...)
     {
+
+    #pull ls into fun source
     anchor_ls -> anc
+    prefixes -> prfx
 
     #TO DO: use `match.args` & `switch` to specify scales!
     if (!anchor %in% names(anc) || !is.character(anchor)) {
-        stop("anchor must be chr & 'agree', 'amt', 'ext', 'freq', or 'sat'")
+        stop("anchor must be 'agree', 'amt', 'ext', 'freq', or 'sat' & chr class")
     }
 
     #prefix fun can be used here....
 
     #error check...learn tryCatch to bolster error handling...
-    # suppressWarnings(
-    if (!item_stem %in% names(prefixes) || !is.character(item_stem)) {
+    if (!item_stem %in% names(prfx) || !is.character(item_stem)) {
         stop("item_stem not found in prefixes; ensure arg is chr class")
     }
-        # )
 
-    prefixes[item_stem] %>%
-        map(~ list(select(.df, contains(.x)))) ->
+
+    prfx[item_stem] %>%
+        map(~ list(select(.df, contains(.x) & !ends_with("_ss")))) ->
         item_ls
 
     item_ls %>%
@@ -180,15 +160,13 @@ lkrt_plot_fun = function(.df, item_stem, anchor, ord = TRUE, title = NULL,
                 labs(title = title, y = "")
             }) ->
         plot_ls
-
-    return(plot_ls)
 }
 
 #Store plots
 list() -> lkrt_plot_ls
 
 #assign to list
-lkrt_plot_fun(.df = scales_ls$full,
+lkrt_plot_fun(.df = cnstr_ls$full,
               item_stem = c("bfi_c", "bfi_n", "bfi_a"),
               anchor = "agree",
               legend_pos = "right",
@@ -200,7 +178,7 @@ lkrt_plot_fun(.df = scales_ls$full,
         ) ->
     lkrt_plot_ls$bfi
 
-lkrt_plot_fun(.df = scales_ls$full,
+lkrt_plot_fun(.df = cnstr_ls$full,
               item_stem = c("hos_s", "hos_r"),
               anchor = "agree",
               legend_pos = "right"
@@ -212,7 +190,7 @@ lkrt_plot_fun(.df = scales_ls$full,
         ) ->
     lkrt_plot_ls$hos
 
-lkrt_plot_fun(.df = scales_ls$full,
+lkrt_plot_fun(.df = cnstr_ls$full,
               item_stem = "eq",
               anchor = "agree",
               legend_pos = "right"
@@ -223,7 +201,7 @@ lkrt_plot_fun(.df = scales_ls$full,
         ) ->
     lkrt_plot_ls$eq
 
-lkrt_plot_fun(.df = scales_ls$full,
+lkrt_plot_fun(.df = cnstr_ls$full,
               item_stem =  c("pa", "na"),
               anchor = "amt",
               legend_pos = "right"
@@ -235,7 +213,7 @@ lkrt_plot_fun(.df = scales_ls$full,
         ) ->
     lkrt_plot_ls$pana
 
-lkrt_plot_fun(.df = scales_ls$full,
+lkrt_plot_fun(.df = cnstr_ls$full,
               item_stem = c("jus_p", "jus_d", "jus_int", "jus_inf"),
               anchor = "ext",
               legend_pos = "right"
@@ -248,7 +226,7 @@ lkrt_plot_fun(.df = scales_ls$full,
     lkrt_plot_ls$jus
 
 #abuse isn't working! not enough responses to plot all anchors...review!
-lkrt_plot_fun(.df = scales_ls$full,
+lkrt_plot_fun(.df = cnstr_ls$full,
               item_stem = c("cwb_s", "cwb_pd", "cwb_w",  "cwb_t"),
               anchor = "freq",
               legend_pos = "right"
@@ -260,7 +238,7 @@ lkrt_plot_fun(.df = scales_ls$full,
         ) ->
     lkrt_plot_ls$cwb
 
-lkrt_plot_fun(.df = scales_ls$full,
+lkrt_plot_fun(.df = cnstr_ls$full,
               item_stem = "sat",
               anchor = "sat",
               legend_pos = "right"

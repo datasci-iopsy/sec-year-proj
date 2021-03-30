@@ -97,70 +97,90 @@ raw %>%
 
 # End ----
 
-
 # Scale & Construct Extraction --------------------------------------------
 
-list() -> scales_ls
+#list to hold separated scales
+list() -> cnstr_ls
+
+#extract relevant prefixes
+dat_ls$survey %>%
+    names() %>%
+    str_extract("[^[0-9]]+") %>%
+    unique() %>%
+    set_names() ->
+    prefixes
+
+#print
+prefixes
 
 #custom function
-scl_pull_fun = function(prefix = NULL) {
+scl_pull_fun = function(prfx = NULL) {
 
-    if (!is.character(prefix)) {
+    if (!is.character(prfx)) {
         stop("prefix must be chr class")
+    } else if (!prfx %in% prefixes) {
+        stop("prfx not found")
     }
 
     #use updated df to extract scales
-    select(dat_ls$survey, starts_with(prefix)) ->
+    dat_ls$survey %>%
+        select(matches(prfx)) %>%
+        mutate(ss = apply(., 1, mean, na.rm = TRUE)) %>%
+        rename_with(~ paste0(prfx, "_ss"), ss) ->
         scl_df
 
     return(scl_df)
 }
 
-#extract respective scales - use custom function w/ df already
-#bfi
-scl_pull_fun("bfi_c") -> scales_ls$bfi$consci
-scl_pull_fun("bfi_a") -> scales_ls$bfi$agree
-scl_pull_fun("bfi_n") -> scales_ls$bfi$neuro
-scl_pull_fun("bfi_o") -> scales_ls$bfi$open
-scl_pull_fun("bfi_e") -> scales_ls$bfi$extro
+#bfi - personality
+map(prefixes[c("bfi_e", "bfi_a", "bfi_c", "bfi_n", "bfi_o")],
+    ~ scl_pull_fun(prfx = .x)) ->
+    cnstr_ls$bfi
 
 #hostility
-scl_pull_fun("hos_s") -> scales_ls$hos$sus
-scl_pull_fun("hos_r") -> scales_ls$hos$resent
+map(prefixes[c("hos_r", "hos_s")],
+    ~ scl_pull_fun(prfx = .x)) ->
+    cnstr_ls$hos
 
 #equity sensitivity
-scl_pull_fun("eq") -> scales_ls$eq
+scl_pull_fun(prfx = "eq") ->
+    cnstr_ls$eq
 
-#affectivity
-scl_pull_fun("pa") -> scales_ls$affect$pa
-scl_pull_fun("na") -> scales_ls$affect$na
+#affectivity - positive & negative
+map(prefixes[c("pa", "na")],
+    ~ scl_pull_fun(prfx = .x)) ->
+    cnstr_ls$affect
 
-#org justice
-scl_pull_fun("jus_p") -> scales_ls$jus$proc
-scl_pull_fun("jus_d") -> scales_ls$jus$distr
-scl_pull_fun("jus_int") -> scales_ls$jus$int
-scl_pull_fun("jus_inf") -> scales_ls$jus$info
+#organizational justice
+map(prefixes[c("jus_p", "jus_d", "jus_int", "jus_inf")],
+    ~ scl_pull_fun(prfx = .x)) ->
+    cnstr_ls$jus
 
-#counterproductive work behavior (cwb)
-scl_pull_fun("cwb_s") -> scales_ls$cwb$sbtg
-scl_pull_fun("cwb_pd") -> scales_ls$cwb$prod_dev
-scl_pull_fun("cwb_w") -> scales_ls$cwb$withdrw
-scl_pull_fun("cwb_t") -> scales_ls$cwb$theft
-scl_pull_fun("cwb_a") -> scales_ls$cwb$abuse
+#counterproductive work behavior
+map(prefixes[c("cwb_s", "cwb_pd", "cwb_w", "cwb_t", "cwb_a")],
+    ~ scl_pull_fun(prfx = .x)) ->
+    cnstr_ls$cwb
 
-#satisfaction
-scl_pull_fun("SAT") -> scales_ls$sat
+#satisfaction -- general, intrinsic, & extrinsic
+scl_pull_fun(prfx = "sat") ->
+    cnstr_ls$sat
 
-#combine scales into sorted df
-reduce(scales_ls$bfi, cbind) %>%
-    cbind(reduce(scales_ls$hos, cbind)) %>%
-    cbind(scales_ls$eq) %>%
-    cbind(reduce(scales_ls$affect, cbind)) %>%
-    cbind(reduce(scales_ls$jus, cbind)) %>%
-    cbind(reduce(scales_ls$cwb, cbind)) %>%
-    cbind(scales_ls$sat) %>%
-    as_tibble() ->
-    scales_ls$full
+#combine cnstr into sorted df
+reduce(cnstr_ls$bfi, bind_cols) %>%
+    bind_cols(reduce(cnstr_ls$hos, bind_cols)) %>%
+    bind_cols(cnstr_ls$eq) %>%
+    bind_cols(reduce(cnstr_ls$affect, bind_cols)) %>%
+    bind_cols(reduce(cnstr_ls$jus, bind_cols)) %>%
+    bind_cols(reduce(cnstr_ls$cwb, bind_cols)) %>%
+    bind_cols(cnstr_ls$sat) ->
+    cnstr_ls$full
+
+# End ----
+
+# Data Aggregation --------------------------------------------------------
+cnstr_ls$full %>%
+    select(ends_with("_ss")) ->
+    cnstr_ls$agg
 
 #save relevant dfs as R obj
-save(dat_ls, scales_ls, file = "../data/r_objs/feat_eng_cln.rda")
+save(dat_ls, cnstr_ls, prefixes, file = "../data/r_objs/feat_eng_cln.rda")
