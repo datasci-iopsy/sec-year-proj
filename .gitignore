@@ -6,3 +6,6 @@
 *.pptx
 */.vscode/*
 *.vscode
+
+#specifically this R object
+feat_eng_cln.rda
