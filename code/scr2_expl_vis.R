@@ -3,7 +3,6 @@ rm(list = ls())
 
 #load libs
 library(tidyverse) #see output for masks
-# library(sjmisc) #masks purrr::is_empty; tidyr::replace_na; tibble::add_case
 library(likert) #masks dplyr::recode
 library(patchwork)
 
@@ -16,6 +15,7 @@ load("../data/r_objs/feat_eng_cln.rda")
 
 # Demographic Review ------------------------------------------------------
 
+# require(sjmisc)
 # #demograph tbls - sjmisc pkg
 # frq(dat_ls$demo, sex:industry) %>%
 #     #edit frq tbls - convert col into df/tibble

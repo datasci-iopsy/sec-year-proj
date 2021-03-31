@@ -1,134 +1,258 @@
-#list of construct subscales
-datList = list(
-    bfi = select(dat, starts_with("BFI")),
-    hos = select(dat, starts_with("HOS")),
-    eq = select(dat, starts_with("EQ")),
-    pan = select(dat, matches("PA|NA")),
-    jus = select(dat, starts_with("JUS"))
-)
+#keep env cln
+rm(list = ls())
 
-#Confirmatory Factor Analysis
-shhh(MVN) #sROC 0.1-2 loaded
-shhh(lavaan) #masks psych::cor2cov
-shhh(GPArotation)
+#load libs
+library(tidyverse) #see output for masks
+library(psych) #masks ggplot2::%+%, alpha
+library(GGally) #S3 methods overwritten
+library(ggcorrplot)
+library(lavaan)
+library(semPlot) #S3 methods overwritten by lme4
+# library(sjmisc) #masks purrr::is_empty; tidyr::replace_na; tibble::add_case
+# library(patchwork)
 
-#check assumptions for bfi items
-mvn(select(datList[["bfi"]], contains("_A")), univariatePlot = "histogram")
-mvn(select(datList[["bfi"]], contains("_N")), univariatePlot = "histogram")
+#script opts
+theme_set(theme_minimal())
+options(tibble.width = Inf)
 
-#paste('full',paste(paste0('var',1:50),collapse='+'),sep='=~') #useful syntax!
+#import data -- load from feat_eng script
+load("../data/r_objs/feat_eng_cln.rda")
 
-#CFA of agreeableness and neuroticism; most relevant to study
-bfi_mod = ' agree =~ BFI_A1_R + BFI_A2 + BFI_A3_R + BFI_A4 + BFI_A5 +
-            BFI_A6_R + BFI_A7 + BFI_A8_R
+#list to hold feats
+list() -> vars_ls
 
-            neuro =~ BFI_N1 + BFI_N2_R + BFI_N3 + BFI_N4 + BFI_N5_R +
-            BFI_N6 + BFI_N7_R + BFI_N8'
+#select feats of interest
+cnstr_ls$agg %>%
+    #rm suffix; KEEP IN MIND these are scale scores (mean aggregation)
+    rename_with(~ str_remove(.x, "_ss")) %>%
+    select(
+        bfi_a:bfi_n,
+        starts_with("hos"),
+        eq,
+        pa:na,
+        starts_with("jus")
+        ) ->
+    vars_ls$all
 
-bfi_modNest = ' full =~ BFI_A1_R + BFI_A2 + BFI_A3_R + BFI_A4 + BFI_A5 +
-                BFI_A6_R + BFI_A7 + BFI_A8_R + BFI_N1 + BFI_N2_R + BFI_N3 +
-                BFI_N4 + BFI_N5_R + BFI_N6 + BFI_N7_R + BFI_N8 '
+#quick overview of data
+glimpse(vars_ls$all)
+summary(vars_ls$all)
+
+# Correlation Analysis ----------------------------------------------------
+
+# #pairs plot
+# GGally::ggpairs(
+#     data = vars_ls$all,
+#     # upper = "blank",
+#     lower = list(continuous = wrap(ggally_smooth_lm))
+#     )
+
+#list to hold corr info
+list() -> corrs_ls
+
+psych::corr.test(
+    x = vars_ls$all,
+    use = "pairwise", #no missings in data
+    method = "pearson",
+    alpha = .05
+    ) ->
+    corrs_ls$out
+
+#using ggcorrplot package!
+ggcorrplot::ggcorrplot(
+    corr = corrs_ls$out$r,
+    method = "square",
+    type = "lower",
+    title = "Zero-order Correlation Coefficients",
+    colors = c("red", "white", "skyblue"),
+    lab = TRUE,
+    digits = 2
+    ) ->
+    corrs_ls$pear_plt
+
+#save corr plot
+ggsave("../figs/corr_plot.png", corrs_ls$pear_plt)
+
+
+# CFA - BFI ---------------------------------------------------------------
+
+#list to hold models and fits
+list() -> cfa_mods
+list() -> cfa_fits
+
+#CFA of agreeableness, conscientiousness, & neuroticism
+cfa_mods$bfi_f3 =
+'
+    agree =~ bfi_a1_r + bfi_a2 + bfi_a3_r + bfi_a4 + bfi_a5 + bfi_a6_r +
+    bfi_a7 + bfi_a8_r + bfi_a9
+
+    consc =~ bfi_c1 + bfi_c2_r + bfi_c3 + bfi_c4_r + bfi_c5_r + bfi_c6 +
+    bfi_c7 + bfi_c8 + bfi_c9_r
+
+    neuro =~ bfi_n1 + bfi_n2_r + bfi_n3 + bfi_n4 + bfi_n5_r + bfi_n6 +
+    bfi_n7_r + bfi_n8
+'
+
+cfa_mods$bfi_f1 =
+'
+    one_f =~ bfi_a1_r + bfi_a2 + bfi_a3_r + bfi_a4 + bfi_a5 + bfi_a6_r +
+    bfi_a7 + bfi_a8_r + bfi_a9 + bfi_c1 + bfi_c2_r + bfi_c3 + bfi_c4_r +
+    bfi_c5_r + bfi_c6 + bfi_c7 + bfi_c8 + bfi_c9_r +  bfi_n1 + bfi_n2_r +
+    bfi_n3 + bfi_n4 + bfi_n5_r + bfi_n6 + bfi_n7_r + bfi_n8
+'
 
 #fit the models
-bfi_fit <- cfa(bfi_mod, data = datList[["bfi"]], estimator = "DWLS")
-bfiNest_fit = cfa(bfi_modNest, data = datList[["bfi"]], estimator = "DWLS")
+cfa(cfa_mods$bfi_f3, data = cnstr_ls$full, estimator = "DWLS")  ->
+    cfa_fits$bfi_f3
+
+cfa(cfa_mods$bfi_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+    cfa_fits$bfi_f1
 
 #fit statistics
-summary(bfi_fit, fit.measures = TRUE, standardized = TRUE)
-summary(bfiNest_fit, fit.measures = TRUE, standardized = TRUE)
+summary(cfa_fits$bfi_f3, fit.measures = TRUE, standardized = TRUE)
+summary(cfa_fits$bfi_f1, fit.measures = TRUE, standardized = TRUE)
 
 #compare complex vs nested models - nested wins!
-anova(bfi_fit, bfiNest_fit)
+anova(cfa_fits$bfi_f3, cfa_fits$bfi_f1)
 
-#CFA of hostility items
-#check assumptions for hostility items
-mvn(select(datList[["hos"]], contains("_R")), univariatePlot = "histogram")
-mvn(select(datList[["hos"]], contains("_S")), univariatePlot = "histogram")
+# #visualize model
+# semPaths(cfa_fits$bfi_f3, "std", layout = "circle2")
 
-#CFA of resentment and suspicion
-hos_mod = ' resent =~ HOS_R1 + HOS_R2 + HOS_R3 + HOS_R4 + HOS_R5 + HOS_R6_R +
-            HOS_R7 + HOS_R8
-            suspi =~ HOS_S1 + HOS_S2 + HOS_S3 + HOS_S4 + HOS_S5 + HOS_S6 +
-            HOS_S7 + HOS_S8 + HOS_S9_R + HOS_S10_R '
+# End ----
 
-hos_modNest = ' full =~ HOS_R1 + HOS_R2 + HOS_R3 + HOS_R4 + HOS_R5 + HOS_R6_R +
-                HOS_R7 + HOS_R8 + HOS_S1 + HOS_S2 + HOS_S3 + HOS_S4 + HOS_S5 +
-                HOS_S6 + HOS_S7 + HOS_S8 + HOS_S9_R + HOS_S10_R '
+# CFA - Hostility ---------------------------------------------------------
+
+#CFA of resentment & suspicion
+cfa_mods$hos_f2 =
+'
+    resent =~ hos_r1 + hos_r2 + hos_r3 + hos_r4 + hos_r5 + hos_r6_r +
+    hos_r7 + hos_r8
+
+    sus =~ hos_s1 + hos_s2 + hos_s3 + hos_s4 + hos_s5 + hos_s6 + hos_s7 +
+    hos_s8 + hos_s9_r + hos_s10_r
+'
+
+cfa_mods$hos_f1 =
+'
+    one_f =~ hos_r1 + hos_r2 + hos_r3 + hos_r4 + hos_r5 + hos_r6_r +
+    hos_r7 + hos_r8 + hos_s1 + hos_s2 + hos_s3 + hos_s4 + hos_s5 + hos_s6 +
+    hos_s7 + hos_s8 + hos_s9_r + hos_s10_r
+'
 
 #fit the models
-hos_fit = cfa(hos_mod, data = datList[["hos"]], estimator = "DWLS")
-hosNest_fit = cfa(hos_modNest, data = datList[["hos"]], estimator = "DWLS")
+cfa(cfa_mods$hos_f2, data = cnstr_ls$full, estimator = "DWLS")  ->
+    cfa_fits$hos_f2
+
+cfa(cfa_mods$hos_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+    cfa_fits$hos_f1
 
 #fit statistics
-summary(hos_fit, fit.measures = TRUE, standardized = TRUE)
-summary(hosNest_fit, fit.measures = TRUE, standardized = TRUE)
+summary(cfa_fits$hos_f2, fit.measures = TRUE, standardized = TRUE)
+summary(cfa_fits$hos_f1, fit.measures = TRUE, standardized = TRUE)
 
 #compare complex vs nested models - nested wins!
-anova(hos_fit, hosNest_fit)
+anova(cfa_fits$hos_f2, cfa_fits$hos_f1)
 
-#CFA of equity sensitivity
-#check assumptions
-mvn(datList[["eq"]], univariatePlot = "histogram")
+# #visualize model
+# semPaths(cfa_fits$hos_f2, "std", layout = "circle2")
 
-#CFA of equity sensitivity items
-eq_mod = ' eq =~ EQ1_R + EQ2_R + EQ3_R + EQ4_R + EQ5_R + EQ6_R + EQ7_R + EQ8 +
-           EQ9 + EQ10_R + EQ11 + EQ12 + EQ13 + EQ14 + EQ15 + EQ16 '
+# End ----
 
-#fit the model
-eq_fit = cfa(eq_mod, data = datList[["eq"]], estimator = "DWLS")
+# CFA - Equity Sensitivity ------------------------------------------------
+
+#CFA of resentment & suspicion
+cfa_mods$eq_f1 =
+'
+    eq =~ eq1_r + eq2_r + eq3_r + eq4_r + eq5_r + eq6_r + eq7_r + eq8 +
+    eq9 + eq10_r + eq11 + eq12 + eq13 + eq14 + eq15 + eq16
+'
+
+#fit the models
+cfa(cfa_mods$eq_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+    cfa_fits$eq_f1
 
 #fit statistics
-summary(eq_fit, fit.measures = TRUE, standardized = TRUE)
+summary(cfa_fits$eq_f1, fit.measures = TRUE, standardized = TRUE)
 
-#CFA of PANAS
-#check assumptions
-mvn(select(datList[["pan"]], contains("PA")), univariatePlot = "histogram")
-mvn(select(datList[["pan"]], contains("NA")), univariatePlot = "histogram")
+# #compare complex vs nested models - nested wins!
+# anova(cfa_fits$eq_f1, cfa_fits$eq_...)
 
-#paste('full',paste(paste0('var',1:50),collapse='+'),sep='=~') #useful syntax!
-panas_mod = ' pa =~ PA1 + PA2 + PA3 + PA4 + PA5 + PA6 + PA7 + PA8 + PA9 + PA10
-              na =~ NA1 + NA2 + NA3 + NA4 + NA5 + NA6 + NA7 + NA8 + NA9 + NA10 '
+# #visualize model
+# semPaths(cfa_fits$eq_f1, "std", layout = "circle2")
 
-panas_modNest = ' full =~ PA1 + PA2 + PA3 + PA4 + PA5 + PA6 + PA7 + PA8 + PA9 +
-                  PA10 + NA1 + NA2 + NA3 + NA4 + NA5 + NA6 + NA7 + NA8 + NA9 +
-                  NA10 '
+# End ----
 
-#fit the model
-panas_fit = cfa(panas_mod, data = datList[["pan"]], estimator = "DWLS")
-panasNest_fit = cfa(panas_modNest, data = datList[["pan"]], estimator = "DWLS")
+# CFA - Affectivity -------------------------------------------------------
 
-#summary statistics
-summary(panas_fit, fit.measure = TRUE, standardized = TRUE)
-summary(panasNest_fit, fit.measure = TRUE, standardized = TRUE)
+#CFA of resentment & suspicion
+cfa_mods$aff_f2 =
+    '
+    pa =~ pa1 + pa2 + pa3 + pa4 + pa5 + pa6 + pa7 + pa8 + pa9 + pa10
 
-#compare complex model with nested
-anova(panas_fit, panasNest_fit) #nested model wins!
+    na =~ na1 + na2 + na3 + na4 + na5 + na6 + na7 + na8 + na9 + na10
+'
 
-#CFA of org justice
-#check assumptions
-mvn(select(datList[["jus"]], contains("_P")), univariatePlot = "histogram")
-mvn(select(datList[["jus"]], contains("_D")), univariatePlot = "histogram")
-mvn(select(datList[["jus"]], contains("_INT")), univariatePlot = "histogram")
-mvn(select(datList[["jus"]], contains("_INF")), univariatePlot = "histogram")
+cfa_mods$aff_f1 =
+'
+    one_f =~ pa1 + pa2 + pa3 + pa4 + pa5 + pa6 + pa7 + pa8 + pa9 + pa10 +
+    na1 + na2 + na3 + na4 + na5 + na6 + na7 + na8 + na9 + na10
+'
 
-#build models
-jus_mod = ' proc =~ JUS_P1 + JUS_P2 + JUS_P3 + JUS_P4 + JUS_P5 + JUS_P6 + JUS_P7
-            dist =~ JUS_D1 + JUS_D2 + JUS_D3 + JUS_D4
-            int =~ JUS_INT1 + JUS_INT2 + JUS_INT3
-            inf =~ JUS_INF1 + JUS_INF2 + JUS_INF3 + JUS_INF4 + JUS_INF5 '
+#fit the models
+cfa(cfa_mods$aff_f2, data = cnstr_ls$full, estimator = "DWLS")  ->
+    cfa_fits$aff_f2
 
-jus_modNest = ' full =~ JUS_P1 + JUS_P2 + JUS_P3 + JUS_P4 + JUS_P5 + JUS_P6 +
-                JUS_P7 + JUS_D1 + JUS_D2 + JUS_D3 + JUS_D4 + JUS_INT1 +
-                JUS_INT2 + JUS_INT3 + JUS_INF1 + JUS_INF2 + JUS_INF3 +
-                JUS_INF4 + JUS_INF5 '
+cfa(cfa_mods$aff_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+    cfa_fits$aff_f1
 
-#fit models
-jus_fit = cfa(jus_mod, data = datList[["jus"]], estimator = "DWLS")
-jusNest_fit = cfa(jus_modNest, data = datList[["jus"]], estimator = "DWLS")
+#fit statistics
+summary(cfa_fits$aff_f2, fit.measures = TRUE, standardized = TRUE)
+summary(cfa_fits$aff_f1, fit.measures = TRUE, standardized = TRUE)
 
-#summary statistics
-summary(jus_fit, fit.measures = TRUE, standardized = TRUE)
-summary(jusNest_fit, fit.measures = TRUE, standardized = TRUE)
+#compare complex vs nested models - nested wins!
+anova(cfa_fits$aff_f2, cfa_fits$aff_f1)
 
-#model comparison
-anova(jus_fit, jusNest_fit) #nested fits better!
+# #visualize model
+# semPaths(cfa_fits$aff_f2, "std", layout = "circle2")
+
+# End ----
+
+# CFA - Organizational Justice --------------------------------------------
+
+#CFA of agreeableness, conscientiousness, & neuroticism
+cfa_mods$jus_f4 =
+    '
+    proc =~ jus_p1 + jus_p2 + jus_p3 + jus_p4 + jus_p5 + jus_p6 + jus_p7
+
+    distr =~ jus_d1 + jus_d2 + jus_d3 + jus_d4
+
+    int =~ jus_int1 + jus_int2 + jus_int3 + jus_int4
+
+    info =~ jus_inf1 + jus_inf2 + jus_inf3 + jus_inf4 + jus_inf5
+'
+
+# cfa_mods$bfi_f1 =
+#     '
+#     one_f =~ bfi_a1_r + bfi_a2 + bfi_a3_r + bfi_a4 + bfi_a5 + bfi_a6_r +
+#     bfi_a7 + bfi_a8_r + bfi_a9 + bfi_c1 + bfi_c2_r + bfi_c3 + bfi_c4_r +
+#     bfi_c5_r + bfi_c6 + bfi_c7 + bfi_c8 + bfi_c9_r +  bfi_n1 + bfi_n2_r +
+#     bfi_n3 + bfi_n4 + bfi_n5_r + bfi_n6 + bfi_n7_r + bfi_n8
+# '
+
+#fit the models
+cfa(cfa_mods$jus_f4, data = cnstr_ls$full, estimator = "DWLS")  ->
+    cfa_fits$jus_f4
+
+# cfa(cfa_mods$bfi_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+#     cfa_fits$bfi_f1
+
+#fit statistics
+summary(cfa_fits$jus_f4, fit.measures = TRUE, standardized = TRUE)
+# summary(cfa_fits$bfi_f1, fit.measures = TRUE, standardized = TRUE)
+
+#compare complex vs nested models - nested wins!
+anova(cfa_fits$bfi_f3, cfa_fits$bfi_f1)
+
+# #visualize model
+semPaths(cfa_fits$jus_f4, "std", layout = "circle2")
+
