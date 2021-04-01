@@ -18,8 +18,8 @@ options(tibble.width = Inf)
 #import data -- load from feat_eng script
 load("../data/r_objs/feat_eng_cln.rda")
 
-#list to hold feats
-list() -> vars_ls
+# #list to hold feats
+# list() -> vars_ls
 
 #select feats of interest
 cnstr_ls$agg %>%
@@ -32,11 +32,11 @@ cnstr_ls$agg %>%
         pa:na,
         starts_with("jus")
         ) ->
-    vars_ls$all
+    vars
 
 #quick overview of data
-glimpse(vars_ls$all)
-summary(vars_ls$all)
+glimpse(vars)
+summary(vars)
 
 # Correlation Analysis ----------------------------------------------------
 
@@ -73,6 +73,7 @@ ggcorrplot::ggcorrplot(
 #save corr plot
 ggsave("../figs/corr_plot.png", corrs_ls$pear_plt)
 
+# End ----
 
 # CFA - BFI ---------------------------------------------------------------
 
@@ -102,10 +103,10 @@ cfa_mods$bfi_f1 =
 '
 
 #fit the models
-cfa(cfa_mods$bfi_f3, data = cnstr_ls$full, estimator = "DWLS")  ->
+cfa(cfa_mods$bfi_f3, data = cnstr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$bfi_f3
 
-cfa(cfa_mods$bfi_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+cfa(cfa_mods$bfi_f1, data = cnstr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$bfi_f1
 
 #fit statistics
@@ -140,10 +141,10 @@ cfa_mods$hos_f1 =
 '
 
 #fit the models
-cfa(cfa_mods$hos_f2, data = cnstr_ls$full, estimator = "DWLS")  ->
+cfa(cfa_mods$hos_f2, data = cnstr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$hos_f2
 
-cfa(cfa_mods$hos_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+cfa(cfa_mods$hos_f1, data = cnstr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$hos_f1
 
 #fit statistics
@@ -160,7 +161,6 @@ anova(cfa_fits$hos_f2, cfa_fits$hos_f1)
 
 # CFA - Equity Sensitivity ------------------------------------------------
 
-#CFA of resentment & suspicion
 cfa_mods$eq_f1 =
 '
     eq =~ eq1_r + eq2_r + eq3_r + eq4_r + eq5_r + eq6_r + eq7_r + eq8 +
@@ -168,7 +168,7 @@ cfa_mods$eq_f1 =
 '
 
 #fit the models
-cfa(cfa_mods$eq_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+cfa(cfa_mods$eq_f1, data = cnstr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$eq_f1
 
 #fit statistics
@@ -184,7 +184,6 @@ summary(cfa_fits$eq_f1, fit.measures = TRUE, standardized = TRUE)
 
 # CFA - Affectivity -------------------------------------------------------
 
-#CFA of resentment & suspicion
 cfa_mods$aff_f2 =
     '
     pa =~ pa1 + pa2 + pa3 + pa4 + pa5 + pa6 + pa7 + pa8 + pa9 + pa10
@@ -199,10 +198,10 @@ cfa_mods$aff_f1 =
 '
 
 #fit the models
-cfa(cfa_mods$aff_f2, data = cnstr_ls$full, estimator = "DWLS")  ->
+cfa(cfa_mods$aff_f2, data = cnstr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$aff_f2
 
-cfa(cfa_mods$aff_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+cfa(cfa_mods$aff_f1, data = cnstr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$aff_f1
 
 #fit statistics
@@ -219,7 +218,6 @@ anova(cfa_fits$aff_f2, cfa_fits$aff_f1)
 
 # CFA - Organizational Justice --------------------------------------------
 
-#CFA of agreeableness, conscientiousness, & neuroticism
 cfa_mods$jus_f4 =
     '
     proc =~ jus_p1 + jus_p2 + jus_p3 + jus_p4 + jus_p5 + jus_p6 + jus_p7
@@ -240,7 +238,7 @@ cfa_mods$jus_f4 =
 # '
 
 #fit the models
-cfa(cfa_mods$jus_f4, data = cnstr_ls$full, estimator = "DWLS")  ->
+cfa(cfa_mods$jus_f4, data = cnstr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$jus_f4
 
 # cfa(cfa_mods$bfi_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
@@ -256,3 +254,17 @@ anova(cfa_fits$bfi_f3, cfa_fits$bfi_f1)
 # #visualize model
 semPaths(cfa_fits$jus_f4, "std", layout = "circle2")
 
+# End ----
+
+# LPA ---------------------------------------------------------------------
+library(tidyLPA)
+library(tictoc)
+
+tic()
+vars %>%
+    select(bfi_a:na) %>%
+    estimate_profiles(n_profiles = 2:5, models = c(1, 2, 3, 6)) ->
+    lpa_res
+toc()
+
+# End ----
