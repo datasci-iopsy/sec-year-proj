@@ -166,7 +166,7 @@ lkrt_plot_fun = function(.df, item_stem, anchor, ord = TRUE, title = NULL,
 list() -> lkrt_plot_ls
 
 #assign to list
-lkrt_plot_fun(.df = cnstr_ls$full,
+lkrt_plot_fun(.df = constr_ls$full,
               item_stem = c("bfi_c", "bfi_n", "bfi_a"),
               anchor = "agree",
               legend_pos = "right",
@@ -178,7 +178,7 @@ lkrt_plot_fun(.df = cnstr_ls$full,
         ) ->
     lkrt_plot_ls$bfi
 
-lkrt_plot_fun(.df = cnstr_ls$full,
+lkrt_plot_fun(.df = constr_ls$full,
               item_stem = c("hos_s", "hos_r"),
               anchor = "agree",
               legend_pos = "right"
@@ -190,7 +190,7 @@ lkrt_plot_fun(.df = cnstr_ls$full,
         ) ->
     lkrt_plot_ls$hos
 
-lkrt_plot_fun(.df = cnstr_ls$full,
+lkrt_plot_fun(.df = constr_ls$full,
               item_stem = "eq",
               anchor = "agree",
               legend_pos = "right"
@@ -201,7 +201,7 @@ lkrt_plot_fun(.df = cnstr_ls$full,
         ) ->
     lkrt_plot_ls$eq
 
-lkrt_plot_fun(.df = cnstr_ls$full,
+lkrt_plot_fun(.df = constr_ls$full,
               item_stem =  c("pa", "na"),
               anchor = "amt",
               legend_pos = "right"
@@ -213,7 +213,7 @@ lkrt_plot_fun(.df = cnstr_ls$full,
         ) ->
     lkrt_plot_ls$pana
 
-lkrt_plot_fun(.df = cnstr_ls$full,
+lkrt_plot_fun(.df = constr_ls$full,
               item_stem = c("jus_p", "jus_d", "jus_int", "jus_inf"),
               anchor = "ext",
               legend_pos = "right"
@@ -226,7 +226,7 @@ lkrt_plot_fun(.df = cnstr_ls$full,
     lkrt_plot_ls$jus
 
 #abuse isn't working! not enough responses to plot all anchors...review!
-lkrt_plot_fun(.df = cnstr_ls$full,
+lkrt_plot_fun(.df = constr_ls$full,
               item_stem = c("cwb_s", "cwb_pd", "cwb_w",  "cwb_t"),
               anchor = "freq",
               legend_pos = "right"
@@ -238,7 +238,7 @@ lkrt_plot_fun(.df = cnstr_ls$full,
         ) ->
     lkrt_plot_ls$cwb
 
-lkrt_plot_fun(.df = cnstr_ls$full,
+lkrt_plot_fun(.df = constr_ls$full,
               item_stem = "sat",
               anchor = "sat",
               legend_pos = "right"
@@ -246,13 +246,13 @@ lkrt_plot_fun(.df = cnstr_ls$full,
     wrap_plots() ->
     lkrt_plot_ls$sat
 
-#save plots
-map(names(lkrt_plot_ls), function(.x) {
-    ggsave(
-        path = "../figs/likert_plots",
-        filename = paste0(.x, ".png"),
-        plot = lkrt_plot_ls[[.x]]
-        )
-    })
+# #save plots
+# map(names(lkrt_plot_ls), function(.x) {
+#     ggsave(
+#         path = "../figs/likert_plots",
+#         filename = paste0(.x, ".png"),
+#         plot = lkrt_plot_ls[[.x]]
+#         )
+#     })
 
 # End ----
