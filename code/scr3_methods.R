@@ -4,10 +4,12 @@ rm(list = ls())
 #load libs
 library(tidyverse) #see output for masks
 library(psych) #masks ggplot2::%+%, alpha
-library(GGally) #S3 methods overwritten
+# library(GGally) #S3 methods overwritten
 library(ggcorrplot)
-library(lavaan)
+library(lavaan) #masks psych::cor2cov
 library(semPlot) #S3 methods overwritten by lme4
+library(tictoc)
+library(tidyLPA)
 # library(sjmisc) #masks purrr::is_empty; tidyr::replace_na; tibble::add_case
 # library(patchwork)
 
@@ -22,7 +24,7 @@ load("../data/r_objs/feat_eng_cln.rda")
 # list() -> vars_ls
 
 #select feats of interest
-cnstr_ls$agg %>%
+constr_ls$agg %>%
     #rm suffix; KEEP IN MIND these are scale scores (mean aggregation)
     rename_with(~ str_remove(.x, "_ss")) %>%
     select(
@@ -31,6 +33,14 @@ cnstr_ls$agg %>%
         eq,
         pa:na,
         starts_with("jus")
+        ) %>%
+    mutate(
+        across(
+            everything(), function(x, na.rm = FALSE) {
+                (x - mean(x, na.rm = na.rm)) / sd(x, na.rm)
+                },
+            .names = "c_{.col}"
+            )
         ) ->
     vars
 
@@ -51,16 +61,16 @@ summary(vars)
 list() -> corrs_ls
 
 psych::corr.test(
-    x = vars_ls$all,
+    x = vars,
     use = "pairwise", #no missings in data
     method = "pearson",
     alpha = .05
     ) ->
-    corrs_ls$out
+    corrs_ls$res
 
 #using ggcorrplot package!
 ggcorrplot::ggcorrplot(
-    corr = corrs_ls$out$r,
+    corr = corrs_ls$res$r,
     method = "square",
     type = "lower",
     title = "Zero-order Correlation Coefficients",
@@ -68,10 +78,10 @@ ggcorrplot::ggcorrplot(
     lab = TRUE,
     digits = 2
     ) ->
-    corrs_ls$pear_plt
+    corrs_ls$plot
 
 #save corr plot
-ggsave("../figs/corr_plot.png", corrs_ls$pear_plt)
+ggsave("../figs/corr_plot.png", corrs_ls$plot)
 
 # End ----
 
@@ -103,10 +113,10 @@ cfa_mods$bfi_f1 =
 '
 
 #fit the models
-cfa(cfa_mods$bfi_f3, data = cnstr_ls$full, estimator = "WLSMV")  ->
+cfa(cfa_mods$bfi_f3, data = constr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$bfi_f3
 
-cfa(cfa_mods$bfi_f1, data = cnstr_ls$full, estimator = "WLSMV")  ->
+cfa(cfa_mods$bfi_f1, data = constr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$bfi_f1
 
 #fit statistics
@@ -141,10 +151,10 @@ cfa_mods$hos_f1 =
 '
 
 #fit the models
-cfa(cfa_mods$hos_f2, data = cnstr_ls$full, estimator = "WLSMV")  ->
+cfa(cfa_mods$hos_f2, data = constr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$hos_f2
 
-cfa(cfa_mods$hos_f1, data = cnstr_ls$full, estimator = "WLSMV")  ->
+cfa(cfa_mods$hos_f1, data = constr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$hos_f1
 
 #fit statistics
@@ -168,7 +178,7 @@ cfa_mods$eq_f1 =
 '
 
 #fit the models
-cfa(cfa_mods$eq_f1, data = cnstr_ls$full, estimator = "WLSMV")  ->
+cfa(cfa_mods$eq_f1, data = constr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$eq_f1
 
 #fit statistics
@@ -198,10 +208,10 @@ cfa_mods$aff_f1 =
 '
 
 #fit the models
-cfa(cfa_mods$aff_f2, data = cnstr_ls$full, estimator = "WLSMV")  ->
+cfa(cfa_mods$aff_f2, data = constr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$aff_f2
 
-cfa(cfa_mods$aff_f1, data = cnstr_ls$full, estimator = "WLSMV")  ->
+cfa(cfa_mods$aff_f1, data = constr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$aff_f1
 
 #fit statistics
@@ -238,10 +248,10 @@ cfa_mods$jus_f4 =
 # '
 
 #fit the models
-cfa(cfa_mods$jus_f4, data = cnstr_ls$full, estimator = "WLSMV")  ->
+cfa(cfa_mods$jus_f4, data = constr_ls$full, estimator = "WLSMV")  ->
     cfa_fits$jus_f4
 
-# cfa(cfa_mods$bfi_f1, data = cnstr_ls$full, estimator = "DWLS")  ->
+# cfa(cfa_mods$bfi_f1, data = constr_ls$full, estimator = "DWLS")  ->
 #     cfa_fits$bfi_f1
 
 #fit statistics
@@ -257,14 +267,97 @@ semPaths(cfa_fits$jus_f4, "std", layout = "circle2")
 # End ----
 
 # LPA ---------------------------------------------------------------------
-library(tidyLPA)
-library(tictoc)
 
+# #explore multiple lpa models
+# tic()
+# vars %>%
+#     select(bfi_a:na) %>%
+#     estimate_profiles(n_profiles = 2:6, models = c(1, 2, 3, 6)) ->
+#     lpa_res
+# toc() # ~2,100 secs (35 mins)
+
+# #save model - takes a while to run!
+# save(lpa_res, file = "mods/lpa_mods.rda")
+
+#load lpa models
+load("mods/lpa_mods.rda")
+
+#quick answers
+compare_solutions(lpa_res, c("LogLik", "BIC", "AIC", "SABIC", "ICL"))
+
+?calc_lrt
+lpa_res$model_1_class_2$model$n #sample size
+lpa_res$model_1_class_2$model$loglik #loglik of null model
+# lpa_res$model_1_class_2$model$parameters$ #num of parameters of null model
+lpa_res$model_1_class_2$model$G #number of classes of null model
+
+#extrac fits
+# map_df(lpa_res, ~ .x$fit)
+get_fit(lpa_res) %>%
+    rename_with(tolower) %>%
+    mutate(
+        model = case_when(
+            model == 1L     ~ "EEI",
+            model == 2L     ~ "VVI",
+            model == 3L     ~ "EEE",
+            model == 6L     ~ "VVV",
+            ),
+        prf_num = as.integer(classes),
+        across(c(entropy:blrt_p), round, 3)
+        ) %>%
+    select(
+        model,
+        prf_num,
+        bic,
+        aic,
+        sabic,
+        entropy,
+        blrt_val,
+        blrt_p
+        ) %>%
+    pivot_longer(
+        -c(model, prf_num),
+        names_to = "fit_stat",
+        values_to = "val"
+        ) ->
+    lpa_fit_df
+
+# End ----
+
+lpa_fit_df %>%
+    filter(fit_stat %in% c("aic", "bic", "sabic", "entropy")) %>%
+    ggplot(aes(x = prf_num, y = val)) +
+    geom_point(aes(color = model, shape = model), size = 2) +
+    geom_line(aes(group = model, color = model, linetype = model)) +
+    facet_wrap(vars(
+        factor(
+            fit_stat,
+            levels = c("aic", "bic", "sabic", "entropy")
+            )
+        ), scales = "free_y") +
+    labs(
+        x = "",
+        y = ""
+        )
+
+
+# mclust LPA --------------------------------------------------------------
+library(mclust) #masks psych::sim; purrr::map
+
+# #pairs plot
+# clPairs(select(vars, bfi_a:na), colors = "red")
+
+#explore multiple lpa models
 tic()
 vars %>%
     select(bfi_a:na) %>%
-    estimate_profiles(n_profiles = 2:5, models = c(1, 2, 3, 6)) ->
-    lpa_res
+    Mclust(
+        data = .,
+        G = 2:6
+        ) ->
+    mclust_lpa_res
 toc()
 
-# End ----
+plot(mclust_lpa_res, "BIC")
+
+table(Class, mclust_lpa_res$classification)
